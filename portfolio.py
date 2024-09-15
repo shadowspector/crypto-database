@@ -1,5 +1,6 @@
 import sqlite3
 import requests
+import random
 
 # Connect to SQLite
 conn = sqlite3.connect('crypto_portfolio.db')
