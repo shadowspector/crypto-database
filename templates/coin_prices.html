@@ -1,0 +1,161 @@
+<!-- templates/coin_prices.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coin Prices</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"> <!-- Optional for styling -->
+</head>
+<body>
+    <a href="{{ url_for('main_menu') }}">Back to Main Menu</a>
+
+    <div class="top-right">
+        <a href="{{ url_for('update_coin_prices') }}">Update Coin Prices</a> <!-- Button to update prices -->
+    </div>
+    <h1>Current Coin Prices</h1>
+
+    <!-- Button for adding coin -->
+    <button id="add-coin-btn">Add New Coin</button>
+
+    <!-- Button to open modal for manual token update -->
+    <button id="update-manual-token-btn">Update Manual Token</button>
+
+    <!-- Add Coin Modal HTML -->
+    <div id="add-coin-modal" class="modal">
+        <h2>Add New Coin</h2>
+        <form id="add-coin-form" action="/add_coin" method="POST">
+            <label for="coin_name">Coin Name:</label>
+            <input type="text" id="coin_name" name="coin_name" required><br><br>
+            <button type="submit">Submit</button>
+        </form>
+        <button id="close-coin-modal">Close</button>
+    </div>
+
+ 
+
+    <!-- Update Manual Token Modal HTML -->
+    <div id="update-manual-token-modal" class="modal">
+        <h2>Update Manual Token</h2>
+        <form id="update-manual-token-form" action="/update_manual_token" method="POST">
+            <label for="token_name">Token Name:</label>
+            <input type="text" id="manual-token-name" name="token_name" required><br><br>
+            <label for="token_price">Token Price:</label>
+            <input type="number" step="0.00000001" id="manual-token_price" name="token_price" require><br><br>
+            <button type="submit">Submit</button>
+        </form>
+        <button id="close-manual-token-modal">Close</button>
+    </div>
+
+    <!-- Table to display coin prices -->
+    <table border="1">
+        <thead>
+            <tr>
+                <th>
+                    <a href="{{ url_for('coin_prices', sort_by='Name', order=order) }}"
+                        class="{{ order if sort_by == 'Name' else ''}}">
+                        Coin Name
+                    </a>
+                </th>
+                <th>
+                    <a href="{{ url_for('coin_prices', sort_by='CurrentPrice', order='asc' if sort_by != 'CurrentPrice' else 'desc') }}"
+                        class="{{ order if sort_by == 'CurrentPrice' else ''}}">
+                        Current Price (USD)
+                    </a>
+                </th>
+                <th>
+                    <a href="{{ url_for('coin_prices', sort_by='MarketCap', order='asc' if sort_by != 'MarketCap' else 'desc') }}"
+                        class="{{ order if sort_by == 'MarketCap' else ''}}">
+                        Market Cap
+                    </a>
+                </th>
+                <th>
+                    <a href="{{ url_for('coin_prices', sort_by='High24h', order='asc' if sort_by != 'High24h' else 'desc') }}"
+                        class="{{ order if sort_by == 'High24h' else ''}}">
+                        24h High
+                    </a>
+                </th>
+                <th>
+                    <a href="{{ url_for('coin_prices', sort_by='Low24h', order='asc' if sort_by != 'Low24h' else 'desc') }}"
+                        class="{{ order if sort_by == 'Low24h' else ''}}">
+                        24h Low
+                    </a>
+                </th>
+                <th>
+                    <a href="{{ url_for('coin_prices', sort_by='PriceChange24h', order='asc' if sort_by != 'PriceChange24h' else 'desc') }}"
+                        class="{{ order if sort_by == 'PriceChange24h' else ''}}">
+                        Price Change (24h)
+                    </a>
+                </th>
+                <th>
+                    <a href="{{ url_for('coin_prices', sort_by='PriceChangePercentage24h', order='asc' if sort_by != 'PriceChangePercentage24h' else 'desc') }}"
+                    class="{{ order if sort_by == 'PriceChangePercentage24h' else ''}}">
+                        Price Change % (24h)
+                    </a>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for coin in coins %}
+            <tr>
+                <td>{{ coin[0] }}</td>
+                <td>{{ coin[1] }}</td>
+                <td>{{ coin[2] }}</td>
+                <td>{{ coin[3] }}</td>
+                <td>{{ coin[4] }}</td>
+                <td>{{ coin[5] }}</td>
+                <td>{{ coin[6] }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Add Coin Modal logic
+            const addCoinModal = document.getElementById('add-coin-modal');
+            const addCoinButton = document.getElementById('add-coin-btn');
+            const closeCoinModal = document.getElementById('close-coin-modal');
+    
+            addCoinButton.addEventListener('click', () => {
+                console.log("clicked add coin");
+                addCoinModal.classList.add('active');
+            });
+    
+            closeCoinModal.addEventListener('click', () => {
+                addCoinModal.classList.remove('active');
+            });
+            
+            document.getElementById('add-coin-form').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('add-coin-form').submit();
+                }
+            });
+
+            // Add Manual Token Modal Logic
+            const updateManualTokenModal = document.getElementById('update-manual-token-modal');
+            const updateManualTokenButton = document.getElementById('update-manual-token-btn');
+            const closeManualTokenModal = document.getElementById('close-manual-token-modal');
+
+            updateManualTokenButton.addEventListener('click', () => {
+                console.log("Update Manual Token button clicked");
+                updateManualTokenModal.classList.add('active');
+            });
+
+            closeManualTokenModal.addEventListener('click', () => {
+                updateManualTokenModal.classList.remove('active');
+            });
+
+            document.getElementById('update-manual-token-form').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('update-manual-token-modal').submit();
+                }
+            });
+        });
+
+
+    </script>
+</body>
+</html>
