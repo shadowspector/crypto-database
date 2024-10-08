@@ -46,14 +46,27 @@
         </form>
         <button id="close-manual-token-modal">Close</button>
     </div>
+    
+    <!-- Edit Display Name Modal-->
+    <div id="edit-display-name-modal" class="modal">
+        <h2>Update Display Name</h2>
+        <form id="update-display-name-form" action="/update_display_name" method="POST">
+            <input type="hidden" id="coin-name" name="coin-name">
+            <p>API Coin Name: <span id="api-coin-name"></span></p>
+            <label for="display-name">Display Name:</label>
+            <input type="text" id="display-name" name="display-name" required><br><br>
+            <button type="submit">Submit</button>
+        </form>
+        <button id="close-display-name-modal">Close</button>
+    </div>
 
     <!-- Table to display coin prices -->
     <table border="1">
         <thead>
             <tr>
                 <th>
-                    <a href="{{ url_for('coin_prices', sort_by='Name', order=order) }}"
-                        class="{{ order if sort_by == 'Name' else ''}}">
+                    <a href="{{ url_for('coin_prices', sort_by='DisplayName', order=order) }}"
+                        class="{{ order if sort_by == 'DisplayName' else '' }}">
                         Coin Name
                     </a>
                 </th>
@@ -67,6 +80,18 @@
                     <a href="{{ url_for('coin_prices', sort_by='MarketCap', order='asc' if sort_by != 'MarketCap' else 'desc') }}"
                         class="{{ order if sort_by == 'MarketCap' else ''}}">
                         Market Cap
+                    </a>
+                </th>
+                <th>
+                    <a href="{{ url_for('coin_prices', sort_by='MarketCapRank', order='asc' if sort_by != 'MarketCapRank' else 'desc') }}"
+                        class="{{ order if sort_by == 'MarketCapRank' else ''}}">
+                        Market Cap Rank
+                    </a>
+                </th>
+                <th>
+                    <a href="{{ url_for('coin_prices', sort_by='TotalVolume', order='asc' if sort_by != 'TotalVolume' else 'desc') }}"
+                        class="{{ order if sort_by == 'TotalVolume' else ''}}">
+                        Total Volume
                     </a>
                 </th>
                 <th>
@@ -98,13 +123,15 @@
         <tbody>
             {% for coin in coins %}
             <tr>
-                <td>{{ coin[0] }}</td>
+                <td><a href="#" class="edit-display-name" data-coin-name="{{ coin[0] }}" data-display-name="{{ coin[-2 ]}}" data-api-name="{{ coin[-1]}}">{{ coin[-2] or coin[0] }}</a></td>
                 <td>{{ coin[1] }}</td>
                 <td>{{ coin[2] }}</td>
                 <td>{{ coin[3] }}</td>
                 <td>{{ coin[4] }}</td>
                 <td>{{ coin[5] }}</td>
-                <td>{{ coin[6] }}%</td>
+                <td>{{ coin[6] }}</td>
+                <td>{{ coin[7] }}</td>
+                <td>{{ coin[8] }}%</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -112,50 +139,60 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Add Coin Modal logic
+            // Add Coin Modal variables
             const addCoinModal = document.getElementById('add-coin-modal');
             const addCoinButton = document.getElementById('add-coin-btn');
             const closeCoinModal = document.getElementById('close-coin-modal');
     
-            addCoinButton.addEventListener('click', () => {
-                console.log("clicked add coin");
-                addCoinModal.classList.add('active');
-            });
-    
-            closeCoinModal.addEventListener('click', () => {
-                addCoinModal.classList.remove('active');
-            });
-            
-            document.getElementById('add-coin-form').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    document.getElementById('add-coin-form').submit();
-                }
-            });
-
-            // Add Manual Token Modal Logic
+            // Update Token Modal variables
             const updateManualTokenModal = document.getElementById('update-manual-token-modal');
             const updateManualTokenButton = document.getElementById('update-manual-token-btn');
             const closeManualTokenModal = document.getElementById('close-manual-token-modal');
 
-            updateManualTokenButton.addEventListener('click', () => {
-                console.log("Update Manual Token button clicked");
-                updateManualTokenModal.classList.add('active');
-            });
+            // Edit Display Name Modal Variable
+            const editDisplayNameModal = document.getElementById('edit-display-name-modal');
+            const closeDisplayNameModal = document.getElementById('close-display-name-modal');
+            const editDisplayNameLinks = document.querySelectorAll('.edit-display-name');
+            const coinNameInput = document.getElementById('coin-name');
+            const displayNameInput = document.getElementById('display-name');
+            const apiCoinNameSpan = document.getElementById('api-coin-name');
 
-            closeManualTokenModal.addEventListener('click', () => {
-                updateManualTokenModal.classList.remove('active');
-            });
+            function openModal(modal) {
+                modal.classList.add('active');
+            };
 
-            document.getElementById('update-manual-token-form').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
+            function closeModal(modal) {
+                modal.classList.remove('active');
+            };
+            
+            addCoinButton.addEventListener('click', () => openModal(addCoinModal));
+            closeCoinModal.addEventListener('click', () => closeModal(addCoinModal));
+            
+            updateManualTokenButton.addEventListener('click', () => openModal(updateManualTokenModal));
+            closeManualTokenModal.addEventListener('click', () => closeModal(updateManualTokenModal));
+
+            editDisplayNameLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
                     e.preventDefault();
-                    document.getElementById('update-manual-token-modal').submit();
-                }
+                    const coinName = link.getAttribute('data-coin-name');
+                    const displayName = link.getAttribute('data-display-name');
+                    const apiName = link.getAttribute('data-api-name');
+                    coinNameInput.value = coinName;
+                    apiCoinNameSpan.textContent = apiName;
+                    displayNameInput.value = displayName;
+                    openModal(editDisplayNameModal);
+                });
             });
+
+            closeDisplayNameModal.addEventListener('click', () => closeModal(editDisplayNameModal));
+
+            window.addEventListener('click', (e) => {
+                if (e.target == addCoinModal) closeModal(addCoinModal);
+                if (e.target == updateManualTokenModal) closeModal(updateManualTokenModal);
+                if (e.target == editDisplayNameModal) closeModal(editDisplayNameModal);
+            });  
+
         });
-
-
     </script>
 </body>
 </html>

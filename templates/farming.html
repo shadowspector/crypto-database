@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farming</title>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border: 2px solid #000
+        }
+
+        .modal.active {
+            display: block
+        }
+    </style>
+</head>
+<body>
+    <a href="{{ url_for('main_menu') }}">Back to Main Menu</a>
+
+    <h1>Farming</h1>
+    
+    <button id="add-farming-btn">Add Farming Position</button>
+
+    <div id="add-farming-modal" class="modal">
+        <h2>Add New Farming Position</h2>
+        <form id="add-farming-form" action="{{ url_for('add_farming') }}" method="POST">
+            <label for="pool">Pool:</label>
+            <input type="text" id="pool" name="pool" required><br><br>
+            <label for="token-a">Token A:</label>
+            <input type="text" id="token-a" name="token-a" required><br><br>
+            <label for="token-b">Token B:</label>
+            <input type="text" id="token-b" name="token-b" required><br><br>
+            <label for="holdings-a">Holdings A:</label>
+            <input type="number" id="holdings-a" name="holdings-a" step="any" required><br><br>
+            <label for="holdings-b">Holdings B:</label>
+            <input type="number" id="holdings-b" name="holdings-b" step="any" required><br><br>
+            <label for="deposited-amount-a">Deposited Amount A:</label>
+            <input type="number" id="deposited-amount-a" name="deposited-amount-a" step="any" required><br><br>
+            <label for="deposited-amount-b">Deposited Amount B:</label>
+            <input type="number" id="deposited-amount-b" name="deposited-amount-b" step="any" required><br><br>
+            <label for="protocol">Protocol:</label>
+            <input type="text" id="protocol" name="protocol" required><br><br>
+            <label for="chain">Chain:</label>
+            <input type="text" id="chain" name="chain" required><br><br>
+            <button type="submit">Submit</button>
+        </form>
+        <button id="close-modal-btn">Close</button>
+    </div>
+
+    <div id="edit-farming-modal" class="modal">
+        <h2>Edit Farming</h2>
+        <form id="edit-farming-form" action="{{ url_for('add_farming') }}" method="POST">
+            <input type="hidden" id="edit-old-pool" name="old-pool">
+            <label for="edit-pool">Pool:</label>
+            <input type="text" id="edit-pool" name="pool" required><br><br>
+            <input type="hidden" id="edit-token-a" name="token-a">
+            <input type="hidden" id="edit-token-b" name="token-b">
+            <input type="hidden" id="edit-protocol" name="procotol">
+            <input type="hidden" id="edit-chain" name="chain">
+            <label for="edit-holdings-a">Holdings A:</label>
+            <input type="number" id="edit-holdings-a" name="holdings-a" step="any" required><br><br>
+            <label type="edit-holdings-b">Holdings B:</label>
+            <input type="number" id="edit-holdings-b" name="holdings-b" setp="any" required><br><br>
+            <label for="edit-deposited-amount-a">Deposited Amount A:</label>
+            <input type="number" id="edit-deposited-amount-a" name="deposited-amount-a" step="any" required><br><br>
+            <label for="edit-deposited-amount-b">Deposited Amount B:</label>
+            <input type="number" id="edit-deposited-amount-b" name="deposited-amount-b" step="any" required><br><br>
+            <button type="sumbit">Update</button>
+        </form>
+        <button id="close-edit-modal-btn">Close</button>
+    </div>
+
+    <h2>Current Farming Positions</h2>
+    <table border="1">
+        <tr>
+            <th><a href="{{ url_for('farming', sort_by='Pool', order=order) }}" class="{{ order if sort_by == 'Pool' else '' }}">Pool</a></th>
+            <th><a href="{{ url_for('farming', sort_by='TokenA', order=order) }}" class="{{ order if sort_by == 'TokenA' else '' }}">Token A</a></th>
+            <th><a href="{{ url_for('farming', sort_by='TokenB', order=order) }}" class="{{ order if sort_by == 'TokenB' else '' }}">Token B</a></th>
+            <th><a href="{{ url_for('farming', sort_by='HoldingsA', order=order) }}" class="{{ order if sort_by == 'HoldingsA' else '' }}">Holdings A</a></th>
+            <th><a href="{{ url_for('farming', sort_by='HoldingsB', order=order) }}" class="{{ order if sort_by == 'HoldingsB' else '' }}">Holdings B</a></th>
+            <th><a href="{{ url_for('farming', sort_by='ValueA', order=order) }}" class="{{ order if sort_by == 'ValueA' else '' }}">Value A</a></th>
+            <th><a href="{{ url_for('farming', sort_by='ValueB', order=order) }}" class="{{ order if sort_by == 'ValueB' else '' }}">Value B</a></th>
+            <th><a href="{{ url_for('farming', sort_by='TotalValue', order=order) }}" class="{{ order if sort_by == 'TotalValue' else '' }}">Total Value</a></th>
+            <th><a href="{{ url_for('farming', sort_by='DepositedAmountA', order=order) }}" class="{{ order if sort_by == 'DepositedAmountA' else '' }}">Deposited Amount A</a></th>
+            <th><a href="{{ url_for('farming', sort_by='DepositedAmountB', order=order) }}" class="{{ order if sort_by == 'DepositedAmountB' else '' }}">Deposited Amount B</a></th>
+            <th><a href="{{ url_for('farming', sort_by='Protocol', order=order) }}" class="{{ order if sort_by == 'Protocol' else '' }}">Protocol</a></th>
+            <th><a href="{{ url_for('farming', sort_by='Chain', order=order) }}" class="{{ order if sort_by == 'Chain' else '' }}">Chain</a></th>
+            <th><a href="{{ url_for('farming', sort_by='% of Total', order=order) }}" class="{{ order if sort_by == '% of Total' else '' }}">% of Total</a></th>
+        </tr>
+        {% for row in farming_data %}
+        <tr>
+            <td><a href=# class="edit-link" data-pool="{{row[0]}}"
+                data-token-a="{{row[1]}}" data-token-b="{{row[2]}}" 
+                data-protocol="{{row[10]}}" data-chain="{{row[11]}}"
+                data-holdings-a="{{row[3]}}" data-holdings-b="{{row[4]}}"
+                data-deposited-a="{{row[12]}}" data-deposited-b="{{row[13]}}">{{ row[0] }}</a></td>
+            <td>{{ row[1] }}</td>
+            <td>{{ row[2] }}</td>
+            <td>{{ row[3] }}</td>
+            <td>{{ row[4] }}</td>
+            <td>{{ row[7] }}</td>
+            <td>{{ row[8] }}</td>
+            <td>{{ row[9] }}</td>
+            <td>{{ row[12] }}</td>
+            <td>{{ row[13] }}</td>
+            <td>{{ row[10] }}</td>
+            <td>{{ row[11] }}</td>
+            <td>{{ row[14] }}%</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h3>Total Farming Value: {{ total_farming_value }}</h3>
+    <h3>Total Portfolio Value: {{ total_value }}</h3>
+</body>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const addFarmingBtn = document.getElementById('add-farming-btn');
+        const farmingModal = document.getElementById('add-farming-modal');
+        const closeFarmingBtn = document.getElementById('close-modal-btn');
+        const editFarmingModal = document.getElementById('edit-farming-modal');
+        const closeEditFarmingBtn = document.getElementById('close-edit-modal-btn');
+        const editLinks = document.querySelectorAll('.edit-link');
+
+        addFarmingBtn.addEventListener('click', () => {
+            farmingModal.classList.add('active');
+        });
+
+        closeFarmingBtn.addEventListener('click', () => {
+            farmingModal.classList.remove('active');
+        });
+
+        closeEditFarmingBtn.addEventListener('click', () => {
+            editFarmingModal.classList.remove('active');
+        });
+
+        function updateNumberInput(id, value) {
+            const input = document.getElementById(id);
+            input.value = value;
+            input.dispatchEvent(new Event('change', {bubbles:true}));
+        };
+
+        editLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const pool = e.target.dataset.pool;
+                const holdingsA = e.target.dataset.holdingsA;
+                const holdingsB = e.target.dataset.holdingsB;
+                const depositedA = e.target.dataset.depositedA;
+                const depositedB = e.target.dataset.depositedB;
+                const chain = e.target.dataset.chain;
+                const protocol = e.target.dataset.protocol;
+
+                document.getElementById('edit-old-pool').value = pool;
+                document.getElementById('edit-pool').value = pool;
+                updateNumberInput('edit-holdings-a',holdingsA);
+                updateNumberInput('edit-holdings-b',holdingsB);
+                updateNumberInput('edit-deposited-amount-a',depositedA);
+                updateNumberInput('edit-deposited-amount-b',depositedB);
+                document.getElementById('edit-chain').value = chain;
+                document.getElementById('edit-protocol').value = protocol;
+                editFarmingModal.classList.add('active');
+            });
+        });
+            
+        document.getElementById('add-farming-form').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('add-farming-form').submit();
+            }
+        });
+
+        document.getElementById('edit-farming-form').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('edit-farming-form').submit();
+            }
+        });
+
+    });
+</script>
+</html>

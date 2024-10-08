@@ -83,9 +83,6 @@
                     </a>
                 </th>
                 <th>
-                    % of Holdings
-                </th>
-                <th>
                     % of Total
                 </th>
             </tr>
@@ -98,12 +95,12 @@
                 <td>{{ row[2] }}</td>
                 <td>{{ row[3] }}</td>
                 <td>{{ row[4] | round(2) }}%</td>
-                <td>{{ row[5] | round(2) }}%</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     <h3>Total Wallet Value: {{ total_value }}</h3>
+    <h3>Total Portfolio Value: {{ total_portfolio_value }}</h3>
 </body>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
