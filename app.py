@@ -1,9 +1,18 @@
 import requests
 import sqlite3
-from flask import Flask, flash, render_template, redirect, url_for, g, request
+import json
+from collections import defaultdict
+from moralis import evm_api
+from flask import Flask, flash, render_template, redirect, url_for, g, request, jsonify
 
 app = Flask(__name__)
 app.secret_key = "secret"
+
+MORALIS_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjIzNGI1YzJhLTEwNTgtNDExNi1iZjhmLWUyZjQyMjE4MzgzOCIsIm9yZ0lkIjoiNDExMTY1IiwidXNlcklkIjoiNDIyNTM1IiwidHlwZUlkIjoiMTYwOWZiMmEtYjc0Mi00ZWE1LTkwZDAtZGZlNmYyM2ViZjMxIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3Mjg1MjU3NjAsImV4cCI6NDg4NDI4NTc2MH0.2y4lJE7yrszEUx9dOoD0krIjDkeAE6OtntVBjy-laQ4'
+MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2'
+
+# List of Chains for API Query
+CHAINS_TO_QUERY = ['eth', 'polygon', 'avalanche', 'arbitrum', 'optimism', 'base']
 
 def get_db():
     if 'db' not in g:
@@ -54,25 +63,116 @@ def find_token(token):
     result = cursor.fetchone()
     return result if result else None
 
-def insert_wallet_data(token, holdings):
+def find_coin_by_name(cursor, name):
+    cursor.execute('''
+        SELECT Name, AlternateNames FROM CoinPrices
+        WHERE Name = ? OR AlternateNames LIKE ?
+    ''', (name, f'%{name}%'))
+    return cursor.fetchone()
+                   
+#def insert_wallet_data(token, holdings):
+#    db = get_db()
+#    cursor = db.cursor()
+#
+#    print(f"Inserting {token} with holdings {holdings}")
+#    
+#    coin_data = find_token(token)
+#   
+#    if coin_data:
+#        name = coin_data[1]
+#        price = coin_data[2]
+#        print(f"Token found: {price}, Price: {price}") # Debugging Line
+#        cursor.execute('''INSERT OR REPLACE INTO Wallet (Token, Price, Holdings)
+#                       VALUES (?, ?, ?)''', (name, price, holdings))
+#        print(f'Inserted {token}, at {price} with the amount {holdings}')
+#        db.commit()
+#    else:
+#        print(f"Token {token} not found in CoinPrices") # Debugging Line
+#        return f"Token {token} not found in CoinPrices"
+
+def get_wallet_balances_and_prices(address, chain):
+    params = {
+        "chain": chain,
+        "exclude_spam": True,
+        "address" : address
+    }
+    
+    result = evm_api.wallets.get_wallet_token_balances_price(
+        api_key=MORALIS_API_KEY,
+        params=params,
+    )
+    
+    
+    if result:
+        return result
+    else:
+        print(f"Error fetching data from Moralis")
+        return None
+        
+    
+def update_wallet_and_prices():
+    wallet_address = '0xbF133C1763c0751494CE440300fCd6b8c4e80D83'
     db = get_db()
     cursor = db.cursor()
 
-    print(f"Inserting {token} with holdings {holdings}")
+    aggregated_data = defaultdict(lambda: {'balance': 0, 'price': 0})
+
+    for chain in CHAINS_TO_QUERY:
+        data = get_wallet_balances_and_prices(wallet_address, chain)
+
+        if data and 'result' in data and data['result']:
+            for token in data['result']:
+                symbol = token.get('symbol', '')
+                moralis_name = token.get('name', '')
+
+                try:
+                    balance = float(token.get('balance_formatted', 0))
+                    price = float(token.get('usd_price', 0))
+                except (ValueError, TypeError):
+                    print(f"Error processing balance or price for {moralis_name} on {chain}")
+                    continue
+                
+                db_result = find_coin_by_name(cursor, moralis_name)
+                if db_result:
+                    name, alt_names = db_result
+                    alt_names_set = set(json.loads(alt_names)) if alt_names else set()
+                    alt_names_set.add(moralis_name)
+                else:
+                    name = moralis_name
+                    alt_names_set = {moralis_name}
+
+                # Aggregate data
+                aggregated_data[name]['balance'] += balance
+                aggregated_data[name]['price'] = price
+                aggregated_data[name]['symbol'] = symbol
+                aggregated_data[name]['alternate_names'].update(alt_names_set)
+            
+            print(f"Processed data for chain: {chain}")
+        else:
+            print(f"Failed to fetch data for chain: {chain}")
+
+    # Update Wallet and CoinPrices tables with aggregated data
+    for name, data in aggregated_data.items():
+        # Update Wallet table
+        cursor.execute('''
+            INSERT OR REPLACE INTO Wallet (Token, Price, Holdings)
+            VALUES (?, ?, ?)
+            ''', (name, data['price'], data['balance']))
+        
+        # Update only the CurrentPrice in CoinPrices table
+        cursor.execute('''
+            INSERT OR REPLACE INTO CoinPrices (Name, CurrentPrice, AlternateNames)
+            VALUES (?, ?, ?)
+            ON CONFLICT(Name) DO UPDATE SET
+            CurrentPrice = excluded.CurrentPrice,
+            AlternateNames = json_patch(CoinPrices.AlternateNames, excluded.AlternateNames)
+        ''', (name, data['price'], json.dumps(list(data['alternate_names']))))     
+
+    db.commit()
     
-    coin_data = find_token(token)
-    
-    if coin_data:
-        name = coin_data[1]
-        price = coin_data[2]
-        print(f"Token found: {price}, Price: {price}") # Debugging Line
-        cursor.execute('''INSERT OR REPLACE INTO Wallet (Token, Price, Holdings)
-                        VALUES (?, ?, ?)''', (name, price, holdings))
-        print(f'Inserted {token}, at {price} with the amount {holdings}')
-        db.commit()
-    else:
-        print(f"Token {token} not found in CoinPrices") # Debugging Line
-        return f"Token {token} not found in CoinPrices"
+    print("Updated wallet hodlings and prices across all chains")
+    return redirect(url_for('wallet'))
+
 
 # Insert staking data
 def insert_staking_data(token, holdings, deposited_amount, project, chain):
@@ -183,6 +283,33 @@ def fetch_single_coin_price(api_id):
         return response.json()
     else:
         return None
+
+def update_token_names(token_name, new_alternate_names, display_name):
+    db = get_db()
+    cursor = db.cursor()
+
+    # Fetch the current alternate names
+    cursor.execute('SELECT AlternateName FROM CoinPrices WHERE Name = ?', (token_name,))
+    result = cursor.fetchone()
+
+    if result is None:
+        return jsonify({"error": "Token not found"}), 404
+    
+    current_alternate_names = json.loads(result[0]) if result[0] else []
+
+    # Add new alternate names
+    updated_alternate_names = list(set(current_alternate_names + new_alternate_names))
+
+    cursor.execute('''
+        UPDATE CoinPrices
+        SET (AlternateNames, DisplayName) 
+        VALUES (?, ?)
+        WHERE Name = ?
+    ''', (json.dumps(updated_alternate_names), display_name, token_name))
+
+    db.commit()
+
+    return jsonify({"message": "names updated added successfully"}), 200
 
 def insert_or_update_coin(api_id):
     coin_data = fetch_single_coin_price(api_id)
@@ -370,6 +497,10 @@ def leveraged_farming():
     db = get_db()
     cursor = db.cursor()
     
+    sort_by = request.args.get('sort_by', 'TotalValue')
+    order = request.args.get('order', 'desc')
+
+    
     cursor.execute('SELECT * FROM LeveragedFarming')
     leveraged_farming_data = cursor.fetchall()
     
@@ -484,14 +615,17 @@ def add_staking():
         flash(message)
     return redirect(url_for('staking'))
 
-@app.route('/add_wallet', methods=['POST'])
-def add_wallet():
+#@app.route('/add_wallet', methods=['POST'])
+#def add_wallet():
     token = request.form['token']
     holdings = request.form['holdings']
     print(f"Token: {token}, Holdings: {holdings}") # Debug Line
     insert_wallet_data(token, holdings)
     return redirect(url_for('wallet'))
 
+@app.route('/update_wallet_and_prices', methods=['GET'])
+def update_wallet_and_prices_route():
+    return update_wallet_and_prices()
 
 @app.route('/update_coin_prices', methods=['GET'])
 def update_coin_prices():
@@ -562,6 +696,31 @@ def update_coin_prices():
         db.commit()
         return redirect(url_for('coin_prices')) # Redirect back to coin price page
     return "Failed to update coin prices."
+
+# Route handling alternate names
+@app.route('/add_alternate_names', methods=['POST'])
+def add_alternate_names_route():
+    data = request.json
+    token_name = data.get('token_name')
+    new_alternate_names = data.get('alternate_names', [])
+
+    if not token_name or not new_alternate_names:
+        return jsonify({"error": "Missing token_name or alternate_names"}), 400
+    return add_alternate_names(token_name, new_alternate_names)
+
+# Update Name Route
+@app.route('/update_token_name', methods=['POST'])
+def update_token_name_route():
+    data = request.json
+    coin_name = data.get('coin-name')
+    display_name = data.get('display-name')
+    new_alternate_names = data.get('alternate_names', [])
+
+    if not coin_name or not display_name or not new_alternate_names:
+        return jsonify({"error": "Missing input"}), 400
+    
+    return update_token_names(coin_name, new_alternate_names, display_name)
+
 
 # Route handling Display Name change
 @app.route('/update_display_name', methods=['POST'])

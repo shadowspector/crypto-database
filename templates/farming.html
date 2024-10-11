@@ -67,7 +67,7 @@
             <label for="edit-holdings-a">Holdings A:</label>
             <input type="number" id="edit-holdings-a" name="holdings-a" step="any" required><br><br>
             <label type="edit-holdings-b">Holdings B:</label>
-            <input type="number" id="edit-holdings-b" name="holdings-b" setp="any" required><br><br>
+            <input type="number" id="edit-holdings-b" name="holdings-b" step="any" required><br><br>
             <label for="edit-deposited-amount-a">Deposited Amount A:</label>
             <input type="number" id="edit-deposited-amount-a" name="deposited-amount-a" step="any" required><br><br>
             <label for="edit-deposited-amount-b">Deposited Amount B:</label>
@@ -92,7 +92,7 @@
             <th><a href="{{ url_for('farming', sort_by='DepositedAmountB', order=order) }}" class="{{ order if sort_by == 'DepositedAmountB' else '' }}">Deposited Amount B</a></th>
             <th><a href="{{ url_for('farming', sort_by='Protocol', order=order) }}" class="{{ order if sort_by == 'Protocol' else '' }}">Protocol</a></th>
             <th><a href="{{ url_for('farming', sort_by='Chain', order=order) }}" class="{{ order if sort_by == 'Chain' else '' }}">Chain</a></th>
-            <th><a href="{{ url_for('farming', sort_by='% of Total', order=order) }}" class="{{ order if sort_by == '% of Total' else '' }}">% of Total</a></th>
+            <th><a href="{{ url_for('farming', sort_by='TotalValue', order=order) }}" class="{{ order if sort_by == '% of Total' else '' }}">% of Total</a></th>
         </tr>
         {% for row in farming_data %}
         <tr>

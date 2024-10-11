@@ -1,51 +1,65 @@
+<!-- templates/leveraged_farming.html-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leveraged Farming</title>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border: 2px solid #000
+        }
+
+        .modal.active {
+            display: block
+        }
+    </style>
 </head>
 <body>
-    <h1>Leveraged Farming</h1>
+    <!-- Botton for Main Menu -->
     <a href="{{ url_for('main_menu') }}">Back to Main Menu</a>
+
+    <h1>Leveraged Farming</h1>
     
-    <h2>Add New Leveraged Farming Position</h2>
-    <form action="{{ url_for('add_leveraged_farming') }}" method="post">
-        <label for="pool">Pool:</label>
-        <input type="text" id="pool" name="pool" required><br>
-        
-        <label for="token_a">Token A:</label>
-        <input type="text" id="token_a" name="token_a" required><br>
-        
-        <label for="token_b">Token B:</label>
-        <input type="text" id="token_b" name="token_b" required><br>
-        
-        <label for="holdings_a">Holdings A:</label>
-        <input type="number" id="holdings_a" name="holdings_a" step="any" required><br>
-        
-        <label for="holdings_b">Holdings B:</label>
-        <input type="number" id="holdings_b" name="holdings_b" step="any" required><br>
-        
-        <label for="debt_a">Debt A:</label>
-        <input type="number" id="debt_a" name="debt_a" step="any" required><br>
-        
-        <label for="debt_b">Debt B:</label>
-        <input type="number" id="debt_b" name="debt_b" step="any" required><br>
-        
-        <label for="protocol">Protocol:</label>
-        <input type="text" id="protocol" name="protocol" required><br>
-        
-        <label for="chain">Chain:</label>
-        <input type="text" id="chain" name="chain" required><br>
-        
-        <label for="deposited_amount_a">Deposited Amount A:</label>
-        <input type="number" id="deposited_amount_a" name="deposited_amount_a" step="any" required><br>
-        
-        <label for="deposited_amount_b">Deposited Amount B:</label>
-        <input type="number" id="deposited_amount_b" name="deposited_amount_b" step="any" required><br>
-        
-        <input type="submit" value="Add Leveraged Farming Position">
-    </form>
+    <!-- Button to open add farming modal -->
+    <button id="add-farming-btn">Add Leverage Farming Position</button>
+
+    <div id="add-farming-modal" class="modal">
+        <h2>Add New Staked Position</h2>
+        <form action="{{ url_for('add_leveraged_farming') }}" method="post">
+            <label for="pool">Pool:</label>
+            <input type="text" id="pool" name="pool" required><br>
+            <label for="token-a">Token A:</label>
+            <input type="text" id="token-a" name="token-a" required><br>
+            <label for="token-b">Token B:</label>
+            <input type="text" id="token-b" name="token-b" required><br>
+            <label for="holdings-a">Holdings A:</label>
+            <input type="number" id="holdings-a" name="holdings-a" step="any" required><br>
+            <label for="holdings-b">Holdings B:</label>
+            <input type="number" id="holdings-b" name="holdings-b" step="any" required><br>
+            <label for="debt_a">Debt A:</label>
+            <input type="number" id="debt-a" name="debt-a" step="any" required><br>
+            <label for="debt-b">Debt B:</label>
+            <input type="number" id="debt-b" name="debt-b" step="any" required><br>
+            <label for="protocol">Protocol:</label>
+            <label for="deposited-amount-a">Deposited Amount A:</label>
+            <input type="number" id="deposited-amount-a" name="deposited-amount-a" step="any" required><br>
+            <label for="deposited-amount-b">Deposited Amount B:</label>
+            <input type="number" id="deposited-amount-b" name="deposited-amount-b" step="any" required><br>
+            <input type="text" id="protocol" name="protocol" required><br>
+            <label for="chain">Chain:</label>
+            <input type="text" id="chain" name="chain" required><br>
+            <button type="submit">Submit</button>
+        </form>
+        <button id="close-modal-btn">Close</button>
+    </div>
 
     <h2>Current Leveraged Farming Positions</h2>
     <table>
