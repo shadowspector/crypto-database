@@ -4,21 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wallet</title>
-    <style>
-        .modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: white;
-            padding: 20px;
-            border: 2px solid #000
-        }
-        .modal.active {
-            display: block;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css')}}">
 </head>
 <body>
     <!-- Botton for Main Menu -->
@@ -26,59 +12,50 @@
 
     <h1>Wallet</h1>
     <!-- Button to open Add Token modal -->
-    <button id="add-token-btn">Add Token</button>
+    <button id="token_btn">Add Token</button>
 
     <!-- Add Token Modal HTML -->
-    <div id="add-token-modal" class="modal">
-        <h2>Add New Token</h2>
-        <form id="add-token-form" action="/add_wallet" method="POST">
-            <label for="token">Token Name:</label>
-            <input type="text" id="token" name="token" required><br><br>
+    <div id="token_modal" class="modal">
+        <h2 id="modal_title">Add/Update Token</h2>
+        <form id="token_form" action="{{ url_for('wallet_routes.update_token')}}" method="POST">
+            <div id="token_name_container">
+                <label for="token_name">Token Name:</label>
+                <input type="text" id="token_name" name="token_name" required><br><br>
+            </div>
             <label for="holdings">Holdings:</label>
             <input type="number" step="any" id="holdings" name="holdings" required><br><br>
             <button type="submit">Submit</button>
         </form>
-        <button id="close-modal">Close</button>
+        <button id="close_modal">Close</button>
     </div>
 
-    <!-- Modal for updating holdings-->
-    <div id="update-holdings-modal" class="modal">
-        <h2>Update Holdings</h2>
-        <form id="update-holdings-form" action="/add_wallet" method="POST">
-            <input type="hidden" id="update-token" name="token">
-            <label for="new-holdings">New Holdings:</label>
-            <input type="number" step="any" id="new-holdings" name="holdings" required><br><br>
-            <button type="submit">Update</button>
-        </form>
-        <button id="close-update-modal">Close</button>
-    </div>
+    <a href="{{ url_for('wallet_routes.update_wallet_and_prices')}}">Update Wallet and Prices</a>
 
- 
-
-    <table border="1" id="wallet-table">
+    
+    <table border="1" id="wallet_table">
         <thead>
             <tr>
                 <th>
-                    <a href="{{ url_for('wallet', sort_by='Token', order=order)}}"
-                    class="{{ order if sort_by =='Token' else ''}}">
+                    <a href="{{ url_for('wallet_routes.wallet', sort_by='Token', order=order)}}"
+                    class="{{ 'asc' if sort_by == 'Token' and order == 'asc' else 'desc' if sort_by == 'Token' else '' }}">
                     Token
                     </a>
                 </th>
                 <th>
-                    <a href="{{ url_for('wallet', sort_by='Price', order=order)}}"
-                    class="{{ order if sort_by =='Price' else ''}}">
+                    <a href="{{ url_for('wallet_routes.wallet', sort_by='Price', order=order)}}"
+                    class="{{ 'asc' if sort_by == 'Price' and order == 'asc' else 'desc' if sort_by == 'Price' else '' }}">
                     Price
                     </a>
                 </th>
                 <th>
-                    <a href="{{ url_for('wallet', sort_by='Holdings', order=order)}}"
-                    class="{{ order if sort_by =='Holdings' else ''}}">
+                    <a href="{{ url_for('wallet_routes.wallet', sort_by='Holdings', order=order)}}"
+                    class="{{ 'asc' if sort_by == 'Holdings' and order == 'asc' else 'desc' if sort_by == 'Holdings' else '' }}">
                     Holdings
                     </a>
                 </th>
                 <th>
-                    <a href="{{ url_for('wallet', sort_by='Value', order=order)}}"
-                    class="{{ order if sort_by == 'Value' else ''}}">
+                    <a href="{{ url_for('wallet_routes.wallet', sort_by='Value', order=order)}}"
+                    class="{{ 'asc' if sort_by == 'Value' and order == 'asc' else 'desc' if sort_by == 'Value' else '' }}">
                     Value
                     </a>
                 </th>
@@ -88,13 +65,13 @@
             </tr>
         </thead>
         <tbody>
-            {% for row in wallet_data %}
+            {% for item, percent in wallet_data %}
             <tr>
-                <td><a href="#" class="update-link" data-coin="{{ row[0] }}">{{ row[0] }}</a></td>
-                <td>{{ row[1] }}</td>
-                <td>{{ row[2] }}</td>
-                <td>{{ row[3] }}</td>
-                <td>{{ row[4] | round(2) }}%</td>
+                <td><a href="#" class="update_link" data-token="{{ item.token }}">{{ item.token }}</a></td>
+                <td>{{ item.price }}</td>
+                <td>{{ item.holdings }}</td>
+                <td>{{ item.value }}</td>
+                <td>{{ "%.2f"|format(percent) }}%</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -107,62 +84,59 @@
 
     
         // Add Token Modal logic
-        const addModal = document.getElementById('add-token-modal');
-        const addButton = document.getElementById('add-token-btn');
-        const closeAddButton = document.getElementById('close-modal');
-    
-        addButton.addEventListener('click', () => {
-            console.log("Add Token Button clicked");
-            addModal.classList.add('active');
+        const tokenModal = document.getElementById('token_modal');
+        const addUpdateTokenBtn = document.getElementById('token_btn');
+        const modalTitle = document.getElementById('modal_title');
+        const tokenNameContainer = document.getElementById('token_name_container');
+        const tokenNameInput = document.getElementById('token_name')
+        const closeButton = document.getElementById('close_modal');
+        const updateLinks = document.querySelectorAll('.update_link');
+
+        function showModal(isUpdate, tokenName=''){
+            if (isUpdate) {
+                modalTitle.textContent = 'Update Token Holdings';
+                tokenNameContainer.innerHTML = `<p><strong>Token Name:</strong> ${tokenName}</p>`;
+                tokenNameInput.value = tokenName;
+            } else {
+                modalTitle.textContent = 'Add New Token';
+                tokenNameContainer.innerHTML = `
+                    <label for="token_name">Token Name:</label>
+                    <input type="text" id="token_name" name="token_name" required>
+                `;
+                tokenNameInput.value = '';
+            }
+            document.getElementById('holdings').value = ''
+            tokenModal.classList.add('active');
+        }
+
+        addUpdateTokenBtn.addEventListener('click', () => {
+            showModal(false);
         });
 
-        closeAddButton.addEventListener('click', () => {
+        closeButton.addEventListener('click', () => {
             console.log("Close Add Token modal");
-            addModal.classList.remove('active');
+            tokenModal.classList.remove('active');
         });
+
+        updateLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const tokenName = link.getAttribute('data-token');
+                showModal(true, tokenName);
+            })
+        })
+
+        window.addEventListener('click', (e) => {
+            if (e.target == tokenModal) {
+                tokenModal.classList.remove('active');
+            }
+        })
 
         // Allow the Enter key to submit the Form
-        document.getElementById('add-token-form').addEventListener('keypress', (e) => {
+        document.getElementById('token_form').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                document.getElementById('add-token-form').submit();
-            }
-        });
-
-        // Update Holdings Modal logic
-        const updateModal = document.getElementById('update-holdings-modal');
-        const closeUpdateButton = document.getElementById('close-update-modal');
-        const updateTokenInput = document.getElementById('update-token');
-
-        // Event delegation for handling clicks on token links
-        let checkTableInterval = setInterval(() => {
-            const walletTable = document.getElementById('wallet-table');
-            if (walletTable) {
-                console.log("wallet table found. Adding event listener.");
-
-                walletTable.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('update-link')) {
-                        e.preventDefault();
-                        const token = e.target.getAttribute('data-coin');
-                        console.log("Token link clicked:", token);
-                        updateTokenInput.value = token;
-                        updateModal.classList.add('active');
-                    }
-                });
-            } else {
-                console.error("Wallet table not found. Cannot add event listener");
-            }
-        }, 100);
-
-        closeUpdateButton.addEventListener('click', () => {
-            console.log("Close Update Holdings modal");
-            updateModal.classList.remove('active');
-        });
-
-        document.getElementById('update-holdings-form').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('update-holdings-form').submit();
+                document.getElementById('token_form').submit();
             }
         });
     });

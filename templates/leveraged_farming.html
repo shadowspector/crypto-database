@@ -32,7 +32,7 @@
     <button id="add-farming-btn">Add Leverage Farming Position</button>
 
     <div id="add-farming-modal" class="modal">
-        <h2>Add New Staked Position</h2>
+        <h2>Add New Leverage Farming Position</h2>
         <form action="{{ url_for('add_leveraged_farming') }}" method="post">
             <label for="pool">Pool:</label>
             <input type="text" id="pool" name="pool" required><br>
@@ -47,12 +47,12 @@
             <label for="debt_a">Debt A:</label>
             <input type="number" id="debt-a" name="debt-a" step="any" required><br>
             <label for="debt-b">Debt B:</label>
-            <input type="number" id="debt-b" name="debt-b" step="any" required><br>
-            <label for="protocol">Protocol:</label>
+            <input type="number" id="debt-b" name="debt-b" step="any" required><br>            
             <label for="deposited-amount-a">Deposited Amount A:</label>
             <input type="number" id="deposited-amount-a" name="deposited-amount-a" step="any" required><br>
             <label for="deposited-amount-b">Deposited Amount B:</label>
             <input type="number" id="deposited-amount-b" name="deposited-amount-b" step="any" required><br>
+            <label for="protocol">Protocol:</label>
             <input type="text" id="protocol" name="protocol" required><br>
             <label for="chain">Chain:</label>
             <input type="text" id="chain" name="chain" required><br>
@@ -60,29 +60,55 @@
         </form>
         <button id="close-modal-btn">Close</button>
     </div>
-
+    <div id="edit-farming-modal" class="modal">
+        <h2>Edit Farming</h2>
+        <form id="edit-farming-form" action="{{ url_for('add_leveraged_farming') }}" method="POST">
+            <input type="hidden" id="edit-old-pool" name="old-pool">
+            <label for="edit-pool">Pool:</label>
+            <input type="text" id="edit-pool" name="pool" required><br><br>
+            <input type="hidden" id="edit-token-a" name="token-a">
+            <input type="hidden" id="edit-token-b" name="token-b">
+            <input type="hidden" id="edit-protocol" name="procotol">
+            <input type="hidden" id="edit-chain" name="chain">
+            <label for="edit-holdings-a">Holdings A:</label>
+            <input type="number" id="edit-holdings-a" name="holdings-a" step="any" required><br><br>
+            <label type="edit-holdings-b">Holdings B:</label>
+            <input type="number" id="edit-holdings-b" name="holdings-b" step="any" required><br><br>
+            <label for="edit-debt-a">Debt A:</label>
+            <input type="number" id="edit-deb-a" name="debt-a" step="any" required><br><br>
+            <label for="edit-debt-b">Debt B:</label>
+            <input type="number" id="edit-debt-b" name="debt-b" step="any" required><br><br>
+            <label for="edit-deposited-amount-a">Deposited Amount A:</label>
+            <input type="number" id="edit-deposited-amount-a" name="deposited-amount-a" step="any" required><br><br>
+            <label for="edit-deposited-amount-b">Deposited Amount B:</label>
+            <input type="number" id="edit-deposited-amount-b" name="deposited-amount-b" step="any" required><br><br>
+            <button type="sumbit">Update</button>
+        </form>
+        <button id="close-edit-modal-btn">Close</button>
+    </div>
     <h2>Current Leveraged Farming Positions</h2>
-    <table>
+    <table border="1">
         <tr>
-            <th>Pool</th>
-            <th>Token A</th>
-            <th>Token B</th>
-            <th>Holdings A</th>
-            <th>Holdings B</th>
-            <th>Debt A</th>
-            <th>Debt B</th>
-            <th>Value A</th>
-            <th>Value B</th>
-            <th>Total Value</th>
-            <th>Protocol</th>
-            <th>Chain</th>
-            <th>Deposited Amount A</th>
-            <th>Deposited Amount B</th>
-            <th>% of Total</th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='Pool', order=order) }}" class="{{ order if sort_by == 'Pool' else '' }}">Pool</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='TokenA', order=order) }}" class="{{ order if sort_by == 'TokenA' else '' }}">Token A</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='TokenB', order=order) }}" class="{{ order if sort_by == 'TokenB' else '' }}">Token B</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='HoldingsA', order=order) }}" class="{{ order if sort_by == 'HoldingsA' else '' }}">Holdings A</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='HoldingsB', order=order) }}" class="{{ order if sort_by == 'HoldingsB' else '' }}">Holdings B</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='DebtA', order=order) }}" class="{{ order if sort_by == 'DebtA' else '' }}">Debt A</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='DebtB', order=order) }}" class="{{ order if sort_by == 'DebtB' else '' }}">Debt B</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='ValueA', order=order) }}" class="{{ order if sort_by == 'ValueA' else '' }}">Value A</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='ValueB', order=order) }}" class="{{ order if sort_by == 'ValueB' else '' }}">Value B</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='TotalValue', order=order) }}" class="{{ order if sort_by == 'TotalValue' else '' }}">Total Value</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='DepositedAmountA', order=order) }}" class="{{ order if sort_by == 'DepositedAmountA' else '' }}">Deposited Amount A</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='DepositedAmountB', order=order) }}" class="{{ order if sort_by == 'DepositedAmountB' else '' }}">Deposited Amount B</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='Protocol', order=order) }}" class="{{ order if sort_by == 'Protocol' else '' }}">Protocol</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='Chain', order=order) }}" class="{{ order if sort_by == 'Chain' else '' }}">Chain</a></th>
+            <th><a href="{{ url_for('leveraged_farming', sort_by='TotalValue', order=order) }}" class="{{ order if sort_by == '% of Total' else '' }}">% of Total</a></th>
         </tr>
         {% for row in leveraged_farming_data %}
         <tr>
-            <td>{{ row[0] }}</td>
+            <td><a href=# class="edit-link" data-pool="{{row[0]}}"
+                data-token-a="{{row[1]}}"{{ row[0] }}></a></td> 
             <td>{{ row[1] }}</td>
             <td>{{ row[2] }}</td>
             <td>{{ row[3] }}</td>
@@ -92,10 +118,10 @@
             <td>{{ row[9] }}</td>
             <td>{{ row[10] }}</td>
             <td>{{ row[11] }}</td>
-            <td>{{ row[12] }}</td>
-            <td>{{ row[13] }}</td>
             <td>{{ row[14] }}</td>
             <td>{{ row[15] }}</td>
+            <td>{{ row[12] }}</td>
+            <td>{{ row[13] }}</td>
             <td>{{ row[16] }}%</td>
         </tr>
         {% endfor %}

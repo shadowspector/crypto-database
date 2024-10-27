@@ -33,7 +33,9 @@
 
     <div id="add-staking-modal" class="modal">
         <h2>Add New Staked Position</h2>
-        <form id="add-staking-form" action="/add_staking" method="POST">
+        <form id="add-staking-form" action="{{url_for('staking_routes.add_staking')}}" method="POST">
+            <label for="Pool">Pool:</label>
+            <input type="text" id="pool" name="pool" required><br><br>
             <label for="token">Token:</label>
             <input type="text" id="token" name="token" required><br><br>
             <label for="holdings">Holdings:</label>
@@ -51,7 +53,9 @@
 
     <div id="edit-staking-modal" class="modal">
         <h2>Edit Staked Position</h2>
-        <form id="edit-staking-form" action="{{ url_for('edit_staking') }}" method="POST">
+        <form id="edit-staking-form" action="{{ url_for('staking_routes.edit_staking') }}" method="POST">
+            <label for="edit-pool">Pool:</label>
+            <input type="text" id="edit-pool" name="pool" required><br><br>
             <input type="hidden" id="edit-token" name="token">
             <label for="edit-holdings">Holdings:</label>
             <input type="number" id="edit-holdings" name="holdings" step="any" required><br><br>
@@ -63,32 +67,41 @@
     </div>
 
     <table border="1">
-        <tr>
-            <th><a href="{{ url_for('staking', sort_by='Token', order=order) }}" class="{{ order if sort_by == 'Token' else '' }}">Token</a></th>
-            <th><a href="{{ url_for('staking', sort_by='Price', order=order) }}" class="{{ order if sort_by == 'Price' else '' }}">Price</a></th>
-            <th><a href="{{ url_for('staking', sort_by='Holdings', order=order) }}" class="{{ order if sort_by == 'Holdings' else '' }}">Holdings</a></th>
-            <th><a href="{{ url_for('staking', sort_by='Value', order=order) }}" class="{{ order if sort_by == 'Value' else '' }}">Value</a></th>
-            <th><a href="{{ url_for('staking', sort_by='DepositedAmount', order=order) }}" class="{{ order if sort_by == 'DepositedAmount' else '' }}">Deposited Amount</a></th>
-            <th><a href="{{ url_for('staking', sort_by='Project', order=order) }}" class="{{ order if sort_by == 'Project' else '' }}">Project</a></th>
-            <th><a href="{{ url_for('staking', sort_by='Chain', order=order) }}" class="{{ order if sort_by == 'Chain' else '' }}">Chain</a></th>
-            <th>% of Total</th>
-        </tr>
-        {% for row in staking_data %}
-        <tr>
-            <td><a href="#" class="edit-link" data-token="{{ row[0] }}" data-holdings="{{ row[2] }}" data-deposited="{{ row[4] }}">{{ row[0] }}</a></td>
-            <td>{{ row[1] }}</td>
-            <td>{{ row[2] }}</td>
-            <td>{{ row[3] }}</td>
-            <td>{{ row[4] }}</td>
-            <td>{{ row[5] }}</td>
-            <td>{{ row[6] }}</td>
-            <td>{{ "%.2f"|format(row[7]) }}%</td>
-            
-        </tr>
-        {% endfor %}
+        <thead>
+            <tr>
+                <th><a href="{{ url_for('staking_routes.staking', sort_by='Token', order=order) }}" class="{{ order if sort_by == 'Token' else '' }}">Token</a></th>
+                <th><a href="{{ url_for('staking_routes.staking', sort_by='Price', order=order) }}" class="{{ order if sort_by == 'Price' else '' }}">Price</a></th>
+                <th><a href="{{ url_for('staking_routes.staking', sort_by='Holdings', order=order) }}" class="{{ order if sort_by == 'Holdings' else '' }}">Holdings</a></th>
+                <th><a href="{{ url_for('staking_routes.staking', sort_by='Value', order=order) }}" class="{{ order if sort_by == 'Value' else '' }}">Value</a></th>
+                <th><a href="{{ url_for('staking_routes.staking', sort_by='DepositedAmount', order=order) }}" class="{{ order if sort_by == 'DepositedAmount' else '' }}">Deposited Amount</a></th>
+                <th><a href="{{ url_for('staking_routes.staking', sort_by='Project', order=order) }}" class="{{ order if sort_by == 'Project' else '' }}">Project</a></th>
+                <th><a href="{{ url_for('staking_routes.staking', sort_by='Chain', order=order) }}" class="{{ order if sort_by == 'Chain' else '' }}">Chain</a></th>
+                <th>% of Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for coin, percent in staking_data %}
+            <tr>
+                <td><a href="#" class="edit-link" 
+                       data-pool="{{coin.pool}}"
+                       data-token="{{coin.token}}" 
+                       data-holdings="{{ coin.holdings }}" 
+                       data-deposited="{{ coin.deposited_amount }}">{{ coin.token }}</a></td>
+                <td>{{ coin.price }}</td>
+                <td>{{ coin.holdings }}</td>
+                <td>{{ coin.value }}</td>
+                <td>{{ coin.deposited_amount }}</td>
+                <td>{{ coin.project }}</td>
+                <td>{{ coin.chain }}</td>
+                <td>{{ "%.2f"|format(percent) }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
-    <h3>Total Staking Value: {{ total_staking_value }}</h3>
-    <h3>Total Portfolio Value: {{ total_value }}</h3>
+    <div class="totals">
+        <h3>Total Staking Value: {{ total_staking_value }}</h3>
+        <h3>Total Portfolio Value: {{ total_value }}</h3>
+    </div>
 </body>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -115,10 +128,12 @@
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const token = e.target.dataset.token;
+                const pool = e.target.dataset.pool;
                 const holdings = e.target.dataset.holdings;
                 const deposited = e.target.dataset.deposited;
 
                 document.getElementById('edit-token').value = token;
+                document.getElementById('edit-pool').value = pool;
                 document.getElementById('edit-holdings').value = holdings;
                 document.getElementById('edit-deposited-amount').value = deposited;
                 editStakingModal.classList.add('active');
