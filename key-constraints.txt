@@ -1,0 +1,99 @@
+-- Core Reference Tables
+CoinPrices:
+  PK: name
+  No FKs
+
+Chain:
+  PK: name
+  No FKs
+
+Protocol:
+  PK: name
+  FK: chain_id REFERENCES Chain(name)
+
+-- Position Base
+Position:
+  PK: id
+  FK: protocol_id REFERENCES Protocol(name)
+
+-- Active Position Tables
+Wallet:
+  PK: position_id
+  FKs:
+    - position_id REFERENCES Position(id)
+    - coin_id REFERENCES CoinPrices(name)
+
+Staking:
+  PK: position_id
+  FKs:
+    - position_id REFERENCES Position(id)
+    - coin_id REFERENCES CoinPrices(name)
+
+FarmingPool:
+  PK: position_id
+  FKs:
+    - position_id REFERENCES Position(id)
+    - token_a_id REFERENCES CoinPrices(name)
+    - token_b_id REFERENCES CoinPrices(name)
+
+-- Future Position Tables (Prepared)
+LeveragedFarmingPool:
+  PK: position_id
+  FKs:
+    - position_id REFERENCES Position(id)
+    - token_a_id REFERENCES CoinPrices(name)
+    - token_b_id REFERENCES CoinPrices(name)
+
+LendingPool:
+  PK: position_id
+  FK: position_id REFERENCES Position(id)
+
+CollateralPosition:
+  PK: position_id
+  FKs:
+    - position_id REFERENCES Position(id)
+    - lending_pool_id REFERENCES LendingPool(position_id)
+    - coin_id REFERENCES CoinPrices(name)
+
+BorrowPosition:
+  PK: position_id
+  FKs:
+    - position_id REFERENCES Position(id)
+    - lending_pool_id REFERENCES LendingPool(position_id)
+    - coin_id REFERENCES CoinPrices(name)
+
+-- Coin Grouping Tables
+CoinGroup:
+  PK: id
+  No FKs
+
+CoinGroupMembership:
+  PK: Composite (group_id, coin_id)
+  FKs:
+    - group_id REFERENCES CoinGroup(id)
+    - coin_id REFERENCES CoinPrices(name)
+
+-- Exposure Tracking Tables
+CoinExposure:
+  FK: coin_id REFERENCES CoinGroup(id)
+  Note: No explicit PK, tracks current exposure
+
+PositionExposure:
+  PK: id
+  FKs:
+    - position_id REFERENCES Position(id)
+    - coin_id REFERENCES CoinGroup(id)
+
+-- Protocol Configuration
+ProtocolCollateralConfig:
+  PK: Composite (protocol_id, coin_id)
+  FKs:
+    - protocol_id REFERENCES Protocol(name)
+    - coin_id REFERENCES CoinPrices(name)
+
+Important Notes:
+1. All tables include created_at and updated_at timestamps
+2. Generated columns (like value) are not constraints but calculated fields
+3. Some tables use their foreign key as their primary key (e.g., position_id in position-type tables)
+4. Composite keys are used where natural many-to-many relationships exist
+

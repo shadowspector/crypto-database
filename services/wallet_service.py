@@ -4,7 +4,7 @@ from utils.response import ResponseHandler
 from utils.logging_config import setup_logger, log_function_call
 from models.wallet import WalletItem
 from config import Config
-import json
+import json, uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Dict
@@ -24,6 +24,7 @@ class TokenDiscovery:
     name: str
     symbol: str
     price: float
+    api_id: str
 
 
 class WalletService:
@@ -32,10 +33,20 @@ class WalletService:
     @staticmethod
     @log_function_call(logger)
     def update_wallet_and_prices():
+        """
+        Update wallet holdings and prices using Morlis API data.
+        Handles multiple chains, token resolution, and error tracking.
+        """
+
         wallet_address = Config.WALLET_ADDRESS
-        aggregated_data = defaultdict(lambda: {'balance': 0, 'price': 0,
-                                                'symbol': '', 'alternate_names': set(),
-                                                'api_id': ''})
+        aggregated_data = defaultdict(lambda: {
+            'balance': 0,
+            'price': 0,
+            'symbol': '',
+            'alternate_names': set(),
+            'api_id': '',
+            'display_name': ''
+            })
         
         # Track failures and discoveries
         failed_tokens: Dict[str, List[TokenError]] = defaultdict(list)
@@ -57,67 +68,149 @@ class WalletService:
             logger.info(f'Processing {len(data["result"])} tokens for chain {chain}')
             for token in data['result']:
                 moralis_name = token.get('name', '')
+                token_address = token.get('token_address', '')
 
-                # Skip deposit tokens
-                if moralis_name in Config.DEPOSIT_TOKENS:
-                    logger.debug(f'Skipping deposit token: {moralis_name}')
+                
+                # Skip deposit and spam tokens
+                if moralis_name in Config.DEPOSIT_TOKENS or moralis_name in Config.SPAM_TOKENS:
+                    logger.debug(f'Skipping deposit or spam token: {moralis_name}')
                     continue
 
-                # Skip deposit tokens
-                if moralis_name in Config.SPAM_TOKENS:
-                    logger.debug(f'Skipping spam token: {moralis_name}')
-                    continue
-
-                # Track balance/price parsing errors
+                
                 try:
                     balance = float(token.get('balance_formatted',0))
                     price = float(token.get('usd_price', 0))
-                except (ValueError, TypeError) as e:
-                    failed_tokens['parse_error'].append(
-                        TokenError(chain=chain,
-                                   name=moralis_name,
-                                   error_type='parse_error',
-                                   details=f'Failed to parse balance or price: {str(e)}')
-                    )
-                    continue
-                
-                if price == 0:
-                    zero_price_tokens.append(
-                        TokenError(chain=chain,
-                                   name=moralis_name,
-                                   error_type='no price',
-                                   details=f'Token price is 0 (symbol: {token.get("symbol", "N/A")})')
-                    )
-                    # Continue processing as we still want to track the token
+                    symbol = token.get('symbol', '')
 
-                db_result = WalletService.find_coin_by_name(moralis_name)
-                
-                if not db_result['success']:
-                    # This is a new token discovery, not an error
-                    new_tokens.append(
-                        TokenDiscovery(
+                    # Resolve token identity
+                    db_result = WalletService.find_coin_by_name(moralis_name)
+
+                    if db_result['success']:
+                        # Known token
+                        name, display_name, alt_names, api_id = db_result['data'][0]
+                        alt_names_set = set(json.loads(alt_names)) if alt_names else set()
+                        alt_names_set.add(moralis_name)
+
+                        # Update token info
+                        aggregated_data[name].update({
+                            'balance': aggregated_data[name]['balance'] + balance,
+                            'price': max(aggregated_data[name]['price'], price),
+                            'display_name': display_name,
+                            'api_id': api_id or token_address,
+                            'alternate_names': alt_names_set,
+                            'symbol': symbol
+                        })
+                    else:
+                        # New token discovery
+                        new_tokens.append(TokenDiscovery(
                             chain=chain,
                             name=moralis_name,
-                            symbol=token.get('symbol', ''),
-                            price=price
-                        )
-                    )
-                    name = moralis_name
-                    alt_names_set = {moralis_name}
-                    display_name = moralis_name
-                    api_id = token.get('token_address', '')
-                else:
-                    name, display_name, alt_names, api_id = db_result['data'][0]
-                    alt_names_set = set(json.loads(alt_names)) if alt_names else set()
-                    alt_names_set.add(moralis_name)
+                            symbol=symbol,
+                            price=price,
+                            api_id=token_address
+                        ))
+
+                        aggregated_data[moralis_name].update({
+                            'balance': balance,
+                            'price': price,
+                            'display_name': moralis_name,
+                            'api_id': token_address,
+                            'alternate_names': {moralis_name},
+                            'symbol': symbol
+                        })
+
+                    if price == 0:
+                        zero_price_tokens.append(TokenError(
+                            chain=chain,
+                            name=name,
+                            error_type='no_price',
+                            details=f'Token price is 0 (symbol: {token.get("symbol", "N/A")})'
+                        ))
+                    
+                   
+                except Exception as e:
+                    failed_tokens['parse_error'].append(TokenError(
+                        chain=chain,
+                        name=moralis_name,
+                        error_type='parse_error',
+                        details=f'Failed to parse balance or price: {str(e)}'
+                    ))
                 
-                # Update aggregated data 
-                aggregated_data[name]['balance'] += balance
-                aggregated_data[name]['price'] = max(aggregated_data[name]['price'],price)
-                aggregated_data[name]['symbol'] = token.get('symbol', '')
-                aggregated_data[name]['alternate_names'].update(alt_names_set)
-                aggregated_data[name]['api_id'] = api_id or aggregated_data[name]['api_id']
-                aggregated_data[name]['display_name'] = display_name
+                
+                # Update CoinPrices
+                logger.info(f'Updating prices for processed tokens')
+                for name, data in aggregated_data.items():
+                    try:
+                        result = WalletService.update_token(
+                            token_name=name,
+                            holdings=data['balance'],
+                            price=data['price']
+                        )
+
+                        if not result['success']:
+                            failed_tokens['update_error'].append(TokenError(
+                                chain='N/A',
+                                name=name,
+                                error_type='update_error',
+                                details=result['error']
+                            ))
+                        else:
+                            logger.info(f'Successfully updated token {name} with balance {data["balance"]} at price ${data["price"]}')
+                    except Exception as e:
+                        failed_tokens['update_error'].append(TokenError(
+                            chain='N/A',
+                            name=name,
+                            error_type='update_error',
+                            details=str(e)
+                        ))
+
+                
+                # Log summary of token processing
+                logger.info('\n=== Token Processing Summary ===')
+
+                # Log new token discoveries
+                if new_tokens:
+                    logger.info('\nNEW TOKENS DISCOVERED:')
+                    for token in new_tokens:
+                        if token.price > 0: # Only log tokens with prices as successful discoveries
+                                message = f'''
+                                    Chain: {token.chain}
+                                    Token: {token.name} ({token.symbol})
+                                    Price: ${token.price}
+                                    API ID: {token.api_id}
+                                '''
+                                logger.info(message)
+
+                # Log zero price tokens
+                if zero_price_tokens:
+                    logger.info('\nTOKENS WITH NO PRICE:')
+                    for token in zero_price_tokens:
+                        message= f'''
+                            Chain: {token.chain}
+                            Token: {token.name}
+                            {token.details}
+                        '''
+                        logger.warning(message)
+                # Log actual errors
+                if failed_tokens:
+                    logger.error('\nFAILED TOKENS:')
+                    for error_type, tokens in failed_tokens.items():
+                        error_message = f'\n {error_type.upper()} ({len(tokens)} tokens):'
+                        for token in tokens:
+                            error_message += f'''
+                                Chain: {token.chain}
+                                Token: {token.name}
+                                Details: {token.details}
+                            '''
+                        logger.error(error_message)
+                logger.info('\n=== End Token Processing Summary ===')
+
+                logger.info('Updated wallet holdings and prices across all chains')
+                return ResponseHandler.success('wallet and prices updated successfully')
+                        
+                    
+                
+                
             
         # Update database with aggregated data                
         logger.info(f'Updating databse with aggregated data for {len(aggregated_data)} tokens')
@@ -132,48 +225,7 @@ class WalletService:
                                details=f'Failed to update token: {str(e)}')
                 )
         
-        # Log summary of token processing
-        logger.info('\n=== Token Processing Summary ===')
-
-        # Log new token discoveries
-        if new_tokens:
-            logger.info('\nNEW TOKENS DISCOVERED:')
-            for token in new_tokens:
-                if token.price > 0: # Only log tokens with prices as successful discoveries
-                        message = f'''
-                            Chain: {token.chain}
-                            Token: {token.name} ({token.symbol})
-                            Price: ${token.price} 
-                        '''
-                        logger.info(message)
-
-        # Log zero price tokens
-        if zero_price_tokens:
-            logger.info('\nTOKENS WITH NO PRICE:')
-            for token in zero_price_tokens:
-                message= f'''
-                    Chain: {token.chain}
-                    Token: {token.name}
-                    {token.details}
-                '''
-                logger.warning(message)
-        # Log actual errors
-        if failed_tokens:
-            logger.error('\nFAILED TOKENS:')
-            for error_type, tokens in failed_tokens.items():
-                error_message = f'\n {error_type.upper()} ({len(tokens)} tokens):'
-                for token in tokens:
-                    error_message += f'''
-                        Chain: {token.chain}
-                        Token: {token.name}
-                        Details: {token.details}
-                    '''
-                logger.error(error_message)
-        logger.info('\n=== End Token Processing Summary ===')
-
-        logger.info('Updated wallet holdings and prices across all chains')
-        return ResponseHandler.success('wallet and prices updated successfully')
-    
+        
     @staticmethod
     @log_function_call(logger)
     def find_coin_by_name(name):
@@ -248,27 +300,40 @@ class WalletService:
     @staticmethod
     @log_function_call(logger)
     def get_wallet_items(sort_by='Value', order='desc'):
+        """Get all wallet items with current values and prices"""
         logger.info(f'Retrieving wallet items. Sort by: {sort_by}, Order: {order}')
         query = f'''
-            SELECT w.Token, w.Price, w.Holdings, w.Value, c.DisplayName, c.Name
+            SELECT
+                cp.DisplayName,
+                w.price,
+                w.amount,
+                (w.amount * w.price) as value,
+                cp.Name
             FROM Wallet w
-            LEFT JOIN CoinPrices c ON w.Token = c.Name
+            JOIN Position p ON w.position_id = p.id
+            LEFT JOIN CoinPrices cp ON w.coin_id = cp.Name
+            WHERE p.position_type = 'wallet'
             ORDER BY {sort_by} {"DESC" if order == "desc" else "ASC"}
         '''
-        result = DatabaseService.execute_query(query)
-        wallet_items = []
-        for row in result:
-            wallet_item = WalletItem(
-                token=row[4] or row[0], # Use DisplayName if available, otherwise use Name
-                price=row[1],
-                holdings=row[2],
-                value=row[3],
-                original_name=row[5] or row[0] # Store the original name for reference
-            )
-            wallet_items.append(wallet_item)
-        logger.debug(f'Retrieved {len(wallet_items)} wallet items')
-        return ResponseHandler.success('Wallet items retrieved successfully', data=wallet_items)
-    
+
+        try:
+            result = DatabaseService.execute_query(query)
+            wallet_items = []
+            for row in result:
+                wallet_item = WalletItem(
+                    token=row[0] or row[4], # Use DisplayName if available, otherwise use Name
+                    price=row[1],
+                    holdings=row[2],
+                    value=row[3],
+                    original_name=row[4]
+                )
+                wallet_items.append(wallet_item)
+            logger.info(f'Retrieved {len(wallet_items)} wallet items')
+            return ResponseHandler.success('Wallet items retrieved successfully', data=wallet_items)
+        except Exception as e:
+            logger.error(f'Error retrieving wallet items: {str(e)}', exc_info=True)
+            return ResponseHandler.error(f'Failed to retrieve wallet items: {str(e)}')
+        
     
     
     @staticmethod

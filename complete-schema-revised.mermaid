@@ -1,0 +1,177 @@
+erDiagram
+    %% Core Reference Tables
+    CoinPrices ||--o{ CoinGroup : "belongs_to"
+    Protocol ||--|{ Position : "manages"
+    Chain ||--|{ Protocol : "runs_on"
+    Protocol ||--|{ ProtocolCollateralConfig : "defines"
+
+    %% Coin Group Relationships
+    CoinGroup ||--|{ CoinGroupMembership : "contains"
+    CoinPrices ||--o{ CoinGroupMembership : "belongs_to"
+    CoinGroup ||--|{ CoinExposure : "has"
+
+    %% Active Position Tables
+    Position ||--|{ Wallet : "contains"
+    Position ||--|{ Staking : "contains"
+    Position ||--|{ FarmingPool : "contains"
+
+    %% Prepared Future Tables
+    Position ||--|{ LeveragedFarmingPool : "will_contain"
+    Position ||--|{ LendingPool : "will_contain"
+    LendingPool ||--|{ CollateralPosition : "will_hold"
+    LendingPool ||--|{ BorrowPosition : "will_owe"
+    ProtocolCollateralConfig ||--o{ CollateralPosition : "will_apply_to"
+
+    %% Exposure Tracking
+    CoinExposure ||--o{ PositionExposure : "breaks_down_to"
+    Position ||--o{ PositionExposure : "tracked_by"
+
+    CoinGroupMembership {
+        string group_id
+        string coin_id
+    }
+
+    CoinPrices {
+        string name
+        string display_name
+        string api_id
+        float current_price
+        float market_cap
+        int market_cap_rank
+        float total_volume
+        string alternate_names
+        timestamp updated_at
+    }
+
+    Chain {
+        string name
+        string display_name
+        boolean is_active
+    }
+
+    Protocol {
+        string name
+        string chain_id
+        string type
+        string display_name
+        boolean is_active
+        string volatility_type
+    }
+
+    Position {
+        string id
+        string protocol_id
+        string position_type
+        float total_value
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CoinGroup {
+        string id
+        string name
+        string display_name
+        boolean is_aggregate
+    }
+
+    Wallet {
+        string position_id
+        string coin_id
+        float amount
+        float price
+        float value
+    }
+
+    Staking {
+        string position_id
+        string coin_id
+        float amount
+        float price
+        float value
+        float deposited_amount
+    }
+
+    FarmingPool {
+        string position_id
+        string token_a_id
+        string token_b_id
+        float price_a
+        float price_b
+        float holdings_a
+        float holdings_b
+        float deposited_a
+        float deposited_b
+        float value_a
+        float value_b
+        float total_value
+    }
+
+    LeveragedFarmingPool {
+        string position_id
+        string token_a_id
+        string token_b_id
+        float price_a
+        float price_b
+        float holdings_a
+        float holdings_b
+        float debt_a
+        float debt_b
+        float deposited_a
+        float deposited_b
+        float value_a
+        float value_b
+        float debt_value_a
+        float debt_value_b
+        float net_value
+    }
+
+    LendingPool {
+        string position_id
+        float health_ratio
+        float total_collateral_value
+        float total_borrow_value
+        float net_value
+    }
+
+    CollateralPosition {
+        string position_id
+        string lending_pool_id
+        string coin_id
+        float amount
+        float price
+        float value
+        float collateral_factor
+        float weighted_value
+    }
+
+    BorrowPosition {
+        string position_id
+        string lending_pool_id
+        string coin_id
+        float amount
+        float price
+        float value
+    }
+
+    CoinExposure {
+        string coin_id
+        float total_value
+        float total_percent
+        timestamp last_updated
+    }
+
+    PositionExposure {
+        string id
+        string position_id
+        string coin_id
+        float position_value
+        float position_percent
+        float type_percent
+    }
+
+    ProtocolCollateralConfig {
+        string protocol_id
+        string coin_id
+        float collateral_factor
+        timestamp updated_at
+    }

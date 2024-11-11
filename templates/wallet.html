@@ -7,136 +7,179 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css')}}">
 </head>
 <body>
-    <!-- Botton for Main Menu -->
-    <a href="{{ url_for('main_menu') }}">Back to Main Menu</a>
-
-    <h1>Wallet</h1>
-    <!-- Button to open Add Token modal -->
-    <button id="token_btn">Add Token</button>
-
-    <!-- Add Token Modal HTML -->
-    <div id="token_modal" class="modal">
-        <h2 id="modal_title">Add/Update Token</h2>
-        <form id="token_form" action="{{ url_for('wallet_routes.update_token')}}" method="POST">
-            <div id="token_name_container">
-                <label for="token_name">Token Name:</label>
-                <input type="text" id="token_name" name="token_name" required><br><br>
-            </div>
-            <label for="holdings">Holdings:</label>
-            <input type="number" step="any" id="holdings" name="holdings" required><br><br>
-            <button type="submit">Submit</button>
-        </form>
-        <button id="close_modal">Close</button>
+    <!-- Navigation -->
+    <div class="navigation">
+        <a href="{{ url_for('main_menu') }}" class="nav-link">Back to Main Menu</a>
+        <a href="{{ url_for('wallet_routes.update_wallet_and_prices')}}" class="nav-link">Update Wallet and Prices</a>
     </div>
 
-    <a href="{{ url_for('wallet_routes.update_wallet_and_prices')}}">Update Wallet and Prices</a>
+    <h1>Wallet</h1>
 
+    <!-- Add Token Button -->
+    <button id="add-token-btn" class="action-button">Add Token</button>
+
+    <!-- Token Modal -->
+    <div id="token-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Add/Update Token</h2>
+            <form id="token-form" action="{{ url_for('wallet_routes.update_token')}}" method="POST">
+                <div id="token-name-container">
+                    <label for="token-name">Token Name:</label>
+                    <input type="text" id="token-name" name="token-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="holdings">Holdings:</label>
+                    <input type="number" step="any" id="holdings" name="holdings" required>
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="submit-button">Submit</button>
+                    <button type="button" id="close_modal" class="cancel-button">Cancle</button>
+                </div>
+            </form>
+        </div>
+    </div>
     
-    <table border="1" id="wallet_table">
-        <thead>
-            <tr>
-                <th>
-                    <a href="{{ url_for('wallet_routes.wallet', sort_by='Token', order=order)}}"
-                    class="{{ 'asc' if sort_by == 'Token' and order == 'asc' else 'desc' if sort_by == 'Token' else '' }}">
-                    Token
-                    </a>
-                </th>
-                <th>
-                    <a href="{{ url_for('wallet_routes.wallet', sort_by='Price', order=order)}}"
-                    class="{{ 'asc' if sort_by == 'Price' and order == 'asc' else 'desc' if sort_by == 'Price' else '' }}">
-                    Price
-                    </a>
-                </th>
-                <th>
-                    <a href="{{ url_for('wallet_routes.wallet', sort_by='Holdings', order=order)}}"
-                    class="{{ 'asc' if sort_by == 'Holdings' and order == 'asc' else 'desc' if sort_by == 'Holdings' else '' }}">
-                    Holdings
-                    </a>
-                </th>
-                <th>
-                    <a href="{{ url_for('wallet_routes.wallet', sort_by='Value', order=order)}}"
-                    class="{{ 'asc' if sort_by == 'Value' and order == 'asc' else 'desc' if sort_by == 'Value' else '' }}">
-                    Value
-                    </a>
-                </th>
-                <th>
-                    % of Total
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item, percent in wallet_data %}
-            <tr>
-                <td><a href="#" class="update_link" data-token="{{ item.token }}">{{ item.token }}</a></td>
-                <td>{{ item.price }}</td>
-                <td>{{ item.holdings }}</td>
-                <td>{{ item.value }}</td>
-                <td>{{ "%.2f"|format(percent) }}%</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <h3>Total Wallet Value: {{ total_value }}</h3>
-    <h3>Total Portfolio Value: {{ total_portfolio_value }}</h3>
+
+    <!-- Wallet Table -->
+    <div class="table-container">
+        <table border="1" id="wallet_table">
+            <thead>
+                <tr>
+                    <th>
+                        <a href="{{ url_for('wallet_routes.wallet', sort_by='Token', order=order)}}"
+                        class="{{ 'asc' if sort_by == 'Token' and order == 'asc' else 'desc' if sort_by == 'Token' else '' }}">
+                        Token
+                        </a>
+                    </th>
+                    <th>
+                        <a href="{{ url_for('wallet_routes.wallet', sort_by='Price', order=order)}}"
+                        class="{{ 'asc' if sort_by == 'Price' and order == 'asc' else 'desc' if sort_by == 'Price' else '' }}">
+                        Price
+                        </a>
+                    </th>
+                    <th>
+                        <a href="{{ url_for('wallet_routes.wallet', sort_by='Holdings', order=order)}}"
+                        class="{{ 'asc' if sort_by == 'Holdings' and order == 'asc' else 'desc' if sort_by == 'Holdings' else '' }}">
+                        Holdings
+                        </a>
+                    </th>
+                    <th>
+                        <a href="{{ url_for('wallet_routes.wallet', sort_by='Value', order=order)}}"
+                        class="{{ 'asc' if sort_by == 'Value' and order == 'asc' else 'desc' if sort_by == 'Value' else '' }}">
+                        Value
+                        </a>
+                    </th>
+                    <th>
+                        % of Total
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item, percent in wallet_data %}
+                <tr>
+                    <td>
+                        <a href="#" class="update_link"
+                        data-token="{{ item.token }}"
+                        data-holdings="{{ item.holdings }}">
+                        {{ item.token }}
+                        </a>
+                    </td>
+                    <td>{{ item.price }}</td>
+                    <td>{{ item.holdings }}</td>
+                    <td>{{ item.value }}</td>
+                    <td>{{ "%.2f"|format(percent) }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Summary Section-->
+    <div class="summary-section">
+        <h3>Total Wallet Value: {{ total_value }}</h3>
+        <h3>Total Portfolio Value: {{ total_portfolio_value }}</h3>
+    </div>
+
+    <!-- Error Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
 </body>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
 
     
         // Add Token Modal logic
-        const tokenModal = document.getElementById('token_modal');
-        const addUpdateTokenBtn = document.getElementById('token_btn');
-        const modalTitle = document.getElementById('modal_title');
-        const tokenNameContainer = document.getElementById('token_name_container');
+        const tokenModal = document.getElementById('token-modal');
+        const addTokenBtn = document.getElementById('add-token-btn');
+        const modalTitle = document.getElementById('modal-title');
+        const tokenNameContainer = document.getElementById('token-name-container');
         const tokenNameInput = document.getElementById('token_name')
-        const closeButton = document.getElementById('close_modal');
-        const updateLinks = document.querySelectorAll('.update_link');
+        const closeButton = document.getElementById('close-modal');
+        const updateLinks = document.querySelectorAll('.update-link');
+        const holdingsInput = document.getElementById('token-holdings');
 
-        function showModal(isUpdate, tokenName=''){
+        function showModal(isUpdate = false, tokenName='', holdings = ''){
+            modalTitle.textContent = isUpdate ? 'Update Token Holdings' : 'Add New Token';
+
             if (isUpdate) {
-                modalTitle.textContent = 'Update Token Holdings';
                 tokenNameContainer.innerHTML = `<p><strong>Token Name:</strong> ${tokenName}</p>`;
                 tokenNameInput.value = tokenName;
+                holdingsInput.value = holdings;
             } else {
-                modalTitle.textContent = 'Add New Token';
                 tokenNameContainer.innerHTML = `
                     <label for="token_name">Token Name:</label>
                     <input type="text" id="token_name" name="token_name" required>
                 `;
                 tokenNameInput.value = '';
+                holdingsInput.value = '';
             }
-            document.getElementById('holdings').value = ''
+
+            
             tokenModal.classList.add('active');
         }
 
-        addUpdateTokenBtn.addEventListener('click', () => {
-            showModal(false);
-        });
-
-        closeButton.addEventListener('click', () => {
-            console.log("Close Add Token modal");
+        function hideModal(){
             tokenModal.classList.remove('active');
-        });
+        }
+
+        addTokenBtn.addEventListener('click', () => showModal());
+        closeButton.addEventListener('click', () => hideModal());
 
         updateLinks.forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
-                const tokenName = link.getAttribute('data-token');
-                showModal(true, tokenName);
-            })
-        })
+                showModal(true, link.getAttribute('data-token'), link.getAttribute('data-holdings'));
+            });
+        });
 
         window.addEventListener('click', (e) => {
             if (e.target == tokenModal) {
-                tokenModal.classList.remove('active');
+                hideModal();
             }
-        })
+        });
+
+        document.getElementById('token-form').addEventListener('submit', (e) => {
+            // Optional: Add form validation here
+            const holdings = parseFloat(holdingsInput.value);
+            if (isNaN(holdings) || holdings < 0) {
+                e.preventDefault();
+                alert('Please enter a valid positive number for holdings');
+            }
+        });
 
         // Allow the Enter key to submit the Form
-        document.getElementById('token_form').addEventListener('keypress', (e) => {
+        document.getElementById('token-form').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                document.getElementById('token_form').submit();
+                document.getElementById('token-form').submit();
             }
         });
     });

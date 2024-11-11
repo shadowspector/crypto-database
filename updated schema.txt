@@ -1,0 +1,170 @@
+sqlite> .schema
+CREATE TABLE CoinPrices (
+    Name TEXT PRIMARY KEY,                     -- Name of the cryptocurrency
+    CurrentPrice REAL,                         -- Current price
+    MarketCap REAL,                            -- Market capitalization
+    MarketCapRank INTEGER,                     -- Market cap rank
+    TotalVolume REAL,                          -- Total trading volume
+    High24h REAL,                              -- Highest price in the last 24 hours
+    Low24h REAL,                               -- Lowest price in the last 24 hours
+    PriceChange24h REAL,                       -- Price change in the last 24 hours
+    PriceChangePercentage24h REAL,             -- Price change percentage in the last 24 hours
+    MarketCapChange24h REAL,                   -- Market cap change in the last 24 hours
+    MarketCapChangePercentage24h REAL,         -- Market cap change percentage in the last 24 hours
+    PriceChangePercentage1h REAL               -- Price change percentage in the last 1 hour
+, DisplayName TEXT, ApiId TEXT, AlternateNames TEXT);
+CREATE TABLE CoinExposure (
+    Token TEXT PRIMARY KEY,
+    TotalValue REAL,
+    WalletValue REAL,
+    StakedValue REAL,
+    LPValue REAL,
+    LendingBorrowingValue REAL,
+    LeverageFarmValue REAL,
+    FOREIGN KEY (Token) REFERENCES CoinPrices(Name)
+);
+CREATE TABLE sqlite_sequence(name,seq);
+CREATE TABLE Chain (
+name TEXT PRIMARY KEY,
+display_name TEXT NOT NULL,
+is_active BOOLEAN DEFAULT true
+);
+CREATE TABLE Protocol (
+    name TEXT PRIMARY KEY,
+    chain_id TEXT NOT NULL,
+    type TEXT CHECK(type IN ('lending', 'dex', 'yield')),
+    display_name TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    volatility_type TEXT CHECK(volatility_type IN ('stable', 'volatile')),
+    FOREIGN KEY (chain_id) REFERENCES Chain(name)
+);
+CREATE TABLE Position (
+    id TEXT PRIMARY KEY,
+    protocol_id TEXT NOT NULL,
+    position_type TEXT CHECK(
+        position_type IN ('wallet', 'staking', 'farming', 'leveraged', 'lending', 'borrowing')
+    ),
+    total_value REAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (protocol_id) REFERENCES Protocol(name)
+);
+CREATE TABLE ProtocolCollateralConfig (
+    protocol_id TEXT,
+    coin_id TEXT,
+    collateral_factor REAL NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (protocol_id, coin_id),
+    FOREIGN KEY (protocol_id) REFERENCES Protocol(name),
+    FOREIGN KEY (coin_id) REFERENCES CoinPrices(name)
+);
+CREATE TABLE LeveragedFarmingPool (
+    position_id TEXT PRIMARY KEY,
+    token_a_id TEXT NOT NULL,
+    token_b_id TEXT NOT NULL,
+    price_a REAL NOT NULL,
+    price_b REAL NOT NULL,
+    holdings_a REAL NOT NULL,
+    holdings_b REAL NOT NULL,
+    debt_a REAL NOT NULL,
+    debt_b REAL NOT NULL,
+    deposited_a REAL NOT NULL,
+    deposited_b REAL NOT NULL,
+    value_a REAL GENERATED ALWAYS AS (holdings_a * price_a) STORED,
+    value_b REAL GENERATED ALWAYS AS (holdings_b * price_b) STORED,
+    debt_value_a REAL GENERATED ALWAYS AS (debt_a * price_a) STORED,
+    debt_value_b REAL GENERATED ALWAYS AS (debt_b * price_b) STORED,
+    net_value REAL GENERATED ALWAYS AS (value_a + value_b - debt_value_a - debt_value_b) STORED,
+    FOREIGN KEY (position_id) REFERENCES Position(id),
+    FOREIGN KEY (token_a_id) REFERENCES CoinPrices(name),
+    FOREIGN KEY (token_b_id) REFERENCES CoinPrices(name)
+);
+CREATE TABLE LendingPool (
+    position_id TEXT PRIMARY KEY,
+    health_ratio REAL,
+    total_collateral_value REAL,
+    total_borrow_value REAL,
+    net_value REAL GENERATED ALWAYS AS (total_collateral_value - total_borrow_value) STORED,
+    FOREIGN KEY (position_id) REFERENCES Position(id)
+);
+CREATE TABLE CollateralPosition (
+    position_id TEXT PRIMARY KEY,
+    lending_pool_id TEXT NOT NULL,
+    coin_id TEXT NOT NULL,
+    amount REAL NOT NULL,
+    price REAL NOT NULL,
+    value REAL GENERATED ALWAYS AS (amount * price) STORED,
+    collateral_factor REAL NOT NULL,
+    weighted_value REAL GENERATED ALWAYS AS (amount * price * collateral_factor) STORED,
+    FOREIGN KEY (lending_pool_id) REFERENCES LendingPool(position_id),
+    FOREIGN KEY (coin_id) REFERENCES CoinPrices(name)
+);
+CREATE TABLE BorrowPosition (
+    position_id TEXT PRIMARY KEY,
+    lending_pool_id TEXT NOT NULL,
+    coin_id TEXT NOT NULL,
+    amount REAL NOT NULL,
+    price REAL NOT NULL,
+    value REAL GENERATED ALWAYS AS (amount * price) STORED,
+    FOREIGN KEY (lending_pool_id) REFERENCES LendingPool(position_id),
+    FOREIGN KEY (coin_id) REFERENCES CoinPrices(name)
+);
+CREATE INDEX idx_position_type ON Position(position_type);
+CREATE INDEX idx_protocol_chain ON Protocol(chain_id);
+CREATE INDEX idx_leveraged_tokens ON LeveragedFarmingPool(token_a_id, token_b_id);
+CREATE INDEX idx_lending_health ON LendingPool(health_ratio);
+CREATE INDEX idx_collateral_coin ON CollateralPosition(coin_id);
+CREATE INDEX idx_borrow_coin ON BorrowPosition(coin_id);
+CREATE TABLE CoinGroup (
+id TEXT PRIMARY KEY,
+name TEXT NOT NULL,
+display_name TEXT NOT NULL,
+is_aggregate BOOLEAN NOT NULL DEFAULT FALSE,
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE PositionExposure (
+id TEXT PRIMARY KEY,
+position_id TEXT NOT NULL,
+coin_id TEXT NOT NULL,
+position_value REAL NOT NULL,
+position_percent REAL NOT NULL,
+type_percent REAL NOT NULL,
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+FOREIGN KEY (position_id) REFERENCES Position(id),
+FOREIGN KEY (coin_id) REFERENCES CoinGroup(id)
+);
+CREATE INDEX idx_position_exposure_coin ON PositionExposure(coin_id)
+;
+CREATE INDEX idx_position_exposure_position ON PositionExposure(position_id);
+CREATE TABLE IF NOT EXISTS "Wallet" (
+                    position_id TEXT PRIMARY KEY,
+                    coin_id TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    price REAL NOT NULL,
+                    value REAL GENERATED ALWAYS AS (amount * price) STORED
+                );
+CREATE INDEX idx_wallet_coin ON Wallet(coin_id);
+CREATE TABLE IF NOT EXISTS "Staking" (
+                    position_id TEXT PRIMARY KEY,
+                    coin_id TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    price REAL NOT NULL,
+                    value REAL GENERATED ALWAYS AS (amount * price) STORED,
+                    deposited_amount REAL NOT NULL
+                );
+CREATE INDEX idx_staking_coin ON Staking(coin_id);
+CREATE TABLE IF NOT EXISTS "FarmingPool" (
+                    position_id TEXT PRIMARY KEY,
+                    token_a_id TEXT NOT NULL,
+                    token_b_id TEXT NOT NULL,
+                    price_a REAL NOT NULL,
+                    price_b REAL NOT NULL,
+                    holdings_a REAL NOT NULL,
+                    holdings_b REAL NOT NULL,
+                    deposited_a REAL NOT NULL,
+                    deposited_b REAL NOT NULL,
+                    value_a REAL GENERATED ALWAYS AS (holdings_a * price_a) STORED,
+                    value_b REAL GENERATED ALWAYS AS (holdings_b * price_b) STORED,
+                    total_value REAL GENERATED ALWAYS AS (value_a + value_b) STORED
